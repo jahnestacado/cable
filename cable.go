@@ -8,12 +8,21 @@ import (
 // Throttle returns a function that no matter how many times it is invoked,
 // it will only execute once within the specified interval
 func Throttle(f func(), interval time.Duration) func() {
-	last := time.Now()
+	var last time.Time
+	cancel := func() {}
 	return func() {
 		now := time.Now()
-		if now.Sub(last) > interval {
+		delta := now.Sub(last)
+		cancel()
+
+		if delta > interval || last.IsZero() {
 			last = now
 			f()
+		} else {
+			cancel = SetTimeout(func() {
+				last = now
+				f()
+			}, interval)
 		}
 	}
 }

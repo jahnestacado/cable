@@ -56,7 +56,7 @@ func Test_SetInterval(t *testing.T) {
 }
 
 func Test_Throttle(t *testing.T) {
-	throttleInterval := 30 * time.Millisecond
+	throttleInterval := 33 * time.Millisecond
 	executionInterval := 5 * time.Millisecond
 	totalExecutionInterval := 200 * time.Millisecond
 	var timesInvoked int
@@ -75,10 +75,11 @@ func Test_Throttle(t *testing.T) {
 		return true
 	}, executionInterval)
 
-	maxExpectedInvocations := 6
+	time.Sleep(throttleInterval + executionInterval)
+
+	maxExpectedInvocations := 7
 	if timesInvoked != maxExpectedInvocations {
 		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.", timesInvoked, maxExpectedInvocations)
-
 	}
 }
 
