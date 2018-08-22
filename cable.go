@@ -27,10 +27,19 @@ func Throttle(f func(), interval time.Duration) func() {
 	}
 }
 
+// DebounceOptions is used to further configure the debounced function behavior
+type DebounceOptions struct {
+	Immediate bool
+}
+
 // Debounce returns a function that no matter how many times it is invoked,
 // it will be invoked only after a specified interval has passed from its last invocation
-func Debounce(f func(), interval time.Duration) func() {
-	cancel := func() {}
+func Debounce(f func(), interval time.Duration, options DebounceOptions) func() {
+	cancel := func() {
+		if options.Immediate {
+			f()
+		}
+	}
 	return func() {
 		cancel()
 		cancel = SetTimeout(f, interval)
