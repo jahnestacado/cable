@@ -1,3 +1,7 @@
+// * cable <https://github.com/jahnestacado/cable>
+// * Copyright (c) 2018 Ioannis Tzanellis
+// * Licensed under the MIT License (MIT).
+
 package cable
 
 import (
