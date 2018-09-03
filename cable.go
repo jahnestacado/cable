@@ -2,6 +2,7 @@
 // * Copyright (c) 2018 Ioannis Tzanellis
 // * Licensed under the MIT License (MIT).
 
+// Package cable implements utility functions for scheduling/limiting function calls
 package cable
 
 import (
@@ -31,13 +32,13 @@ func Throttle(f func(), interval time.Duration) func() {
 	}
 }
 
-// DebounceOptions is used to further configure the debounced function behavior
+// DebounceOptions is used to further configure the debounced-function behavior
 type DebounceOptions struct {
 	Immediate bool
 }
 
 // Debounce returns a function that no matter how many times it is invoked,
-// it will be invoked only after a specified interval has passed from its last invocation
+// it will only execute after the specified interval has passed from its last invocation
 func Debounce(f func(), interval time.Duration, options DebounceOptions) func() {
 	cancel := func() {
 		if options.Immediate {
@@ -50,7 +51,9 @@ func Debounce(f func(), interval time.Duration, options DebounceOptions) func() 
 	}
 }
 
-// SetTimeout postpones the execution of f for a specified interval
+// SetTimeout postpones the execution of function f for the specified interval.
+// It returns a cancel function which when invoked earlier than the specified interval, it will
+// cancel the execution of function f. Note that function f is executed in a different goroutine
 func SetTimeout(f func(), interval time.Duration) func() {
 	var isCanceled bool
 	var access sync.Mutex
@@ -71,8 +74,8 @@ func SetTimeout(f func(), interval time.Duration) func() {
 	return cancel
 }
 
-// SetInterval executes repeatedly the specified function with the specified interval
-// When f returns false the loop will break
+// SetInterval executes function f repeatedly with a fixed time delay(interval) between each call
+// until function f returns false
 func SetInterval(f func() bool, interval time.Duration) {
 	for _ = range time.Tick(interval) {
 		shouldContinue := f()
