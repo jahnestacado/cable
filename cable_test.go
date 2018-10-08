@@ -79,7 +79,7 @@ func Test_Throttle(t *testing.T) {
 		return true
 	}, executionInterval)
 
-	time.Sleep(throttleInterval + executionInterval)
+	time.Sleep(totalExecutionInterval + throttleInterval + executionInterval)
 
 	maxExpectedInvocations := 7
 	if timesInvoked != maxExpectedInvocations {
