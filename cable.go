@@ -15,20 +15,25 @@ import (
 func Throttle(f func(), interval time.Duration) func() {
 	var last time.Time
 	noop := func() {}
+	var access sync.Mutex
 	cancel := noop
 	return func() {
 		now := time.Now()
+		access.Lock()
 		delta := now.Sub(last)
 		cancel()
-
 		if delta > interval || last.IsZero() {
 			last = now
 			f()
+			access.Unlock()
 		} else {
 			cancel = SetTimeout(func() {
+				access.Lock()
 				last = now
 				f()
+				access.Unlock()
 			}, interval)
+			access.Unlock()
 		}
 	}
 }
