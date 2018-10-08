@@ -14,7 +14,8 @@ import (
 // it will only execute once within the specified interval
 func Throttle(f func(), interval time.Duration) func() {
 	var last time.Time
-	cancel := func() {}
+	noop := func() {}
+	cancel := noop
 	return func() {
 		now := time.Now()
 		delta := now.Sub(last)
@@ -40,11 +41,12 @@ type DebounceOptions struct {
 // Debounce returns a function that no matter how many times it is invoked,
 // it will only execute after the specified interval has passed from its last invocation
 func Debounce(f func(), interval time.Duration, options DebounceOptions) func() {
-	cancel := func() {
+	handleImmediateCall := func() {
 		if options.Immediate {
 			f()
 		}
 	}
+	cancel := handleImmediateCall
 	return func() {
 		cancel()
 		cancel = SetTimeout(f, interval)
