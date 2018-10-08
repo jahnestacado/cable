@@ -79,12 +79,12 @@ func SetTimeout(f func(), interval time.Duration) func() {
 // SetInterval executes function f repeatedly with a fixed time delay(interval) between each call
 // until function f returns false
 func SetInterval(f func() bool, interval time.Duration) {
-	go func() {
+	go (func() {
 		for _ = range time.Tick(interval) {
 			shouldContinue := f()
 			if !shouldContinue {
 				break
 			}
 		}
-	}()
+	})()
 }
