@@ -67,6 +67,10 @@ executed in a different goroutine
 
 [GoDoc for cable.go](https://godoc.org/github.com/jahnestacado/cable)
 
+## License
+Copyright (c) 2018 Ioannis Tzanellis<br>
+[Released under the MIT license](https://github.com/jahnestacado/cable/blob/master/LICENSE) 
+
 
 
 
