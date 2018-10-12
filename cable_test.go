@@ -53,7 +53,6 @@ func Test_SetInterval(t *testing.T) {
 	}, interval*time.Millisecond)
 
 	time.Sleep(assertAfter)
-
 	if timesInvoked1 != 5 {
 		t.Errorf(`SetInterval with internal cancelation finished earlier/later.
 			 Callback invoked times: %d, want: %d.`, timesInvoked1, maxTimesInvoked)
@@ -71,10 +70,9 @@ func Test_SetInterval(t *testing.T) {
 	}, totalSetIntervalDuration)
 
 	time.Sleep(assertAfter)
-
 	if timesInvoked2 != 5 {
 		t.Errorf(`SetInterval with external cancelation finished earlier/later.
-			 Callback invoked times: %d, want: %d.`, timesInvoked1, maxTimesInvoked)
+			 Callback invoked times: %d, want: %d.`, timesInvoked2, maxTimesInvoked)
 	}
 }
 
@@ -102,7 +100,8 @@ func Test_Throttle(t *testing.T) {
 
 	maxExpectedInvocations := 7
 	if timesInvoked != maxExpectedInvocations {
-		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.", timesInvoked, maxExpectedInvocations)
+		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.",
+			timesInvoked, maxExpectedInvocations)
 	}
 }
 
@@ -118,19 +117,21 @@ func Test_Debounce(t *testing.T) {
 	debouncedFunc := cable.Debounce(func() {
 		timesInvoked1++
 		if timesInvoked1 != maxExpectedInvocations {
-			t.Errorf("Debounced callback has not been invoked the expected maximum amount of times: %d, want: %d.", timesInvoked1, maxExpectedInvocations)
+			t.Errorf("Debounced callback has not been invoked the expected maximum amount of times: %d, want: %d.",
+				timesInvoked1, maxExpectedInvocations)
 		}
 		if time.Now().Sub(startedAt) <= totalExecutionInterval {
 			t.Errorf("Debounced callback has not been invoked sooner than expected")
 		}
 	}, debounceInterval, cable.DebounceOptions{})
 
-	maxExpectedInvocations2 := 2
+	maxExpectedtimesInvoked2 := 2
 	debouncedImmediateFunc := cable.Debounce(func() {
 		timesInvoked2++
 		delta := time.Now().Sub(startedAt)
-		if timesInvoked2 > maxExpectedInvocations2 {
-			t.Errorf("Debounced immediate callback has not been invoked the expected maximum amount of times: %d, want <=: %d.", timesInvoked2, maxExpectedInvocations2)
+		if timesInvoked2 > maxExpectedtimesInvoked2 {
+			t.Errorf("Debounced immediate callback has not been invoked the expected maximum amount of times: %d, want <=: %d.",
+				timesInvoked2, maxExpectedtimesInvoked2)
 		}
 		if timesInvoked2 == 1 && delta >= totalExecutionInterval {
 			t.Errorf("Debounced immediate callback has been invoked later than expected")
