@@ -53,7 +53,7 @@ func SetInterval(f func() bool, interval time.Duration) func()
 ```
 SetInterval executes function f repeatedly with a fixed time delay(interval)
 between each call until function f returns false. It returns a cancel function
-which can be used to cancel aswell the excution of function f
+which can be used to cancel aswell the execution of function f
 
 #### func  SetTimeout
 
