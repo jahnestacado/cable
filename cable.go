@@ -82,14 +82,28 @@ func SetTimeout(f func(), interval time.Duration) func() {
 }
 
 // SetInterval executes function f repeatedly with a fixed time delay(interval) between each call
-// until function f returns false
-func SetInterval(f func() bool, interval time.Duration) {
+// until function f returns false. It returns a cancel function which can be used to cancel aswell
+// the excution of function f
+func SetInterval(f func() bool, interval time.Duration) func() {
+	var access sync.Mutex
+	shouldContinue := true
 	go (func() {
 		for _ = range time.Tick(interval) {
-			shouldContinue := f()
+			access.Lock()
 			if !shouldContinue {
+				access.Unlock()
 				break
 			}
+			shouldContinue = f()
+			access.Unlock()
 		}
 	})()
+
+	cancel := func() {
+		access.Lock()
+		shouldContinue = false
+		access.Unlock()
+	}
+
+	return cancel
 }

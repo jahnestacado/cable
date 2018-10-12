@@ -39,23 +39,42 @@ func Test_SetTimeout(t *testing.T) {
 }
 
 func Test_SetInterval(t *testing.T) {
-	interval := 20 * time.Millisecond
-	maxInvocations := 5
-	var invocation int
-	startedAt := time.Now()
+	interval := time.Duration(20)
+	maxTimesInvoked := 5
+	timeWindow := 10 * time.Millisecond
+	assertAfter := interval*time.Duration(maxTimesInvoked)*time.Millisecond + timeWindow
+	var timesInvoked1 int
 	cable.SetInterval(func() bool {
-		invocation++
-		if invocation == maxInvocations {
+		timesInvoked1++
+		if timesInvoked1 == maxTimesInvoked {
 			return false
 		}
 		return true
-	}, interval)
+	}, interval*time.Millisecond)
 
-	endedAt := time.Now()
+	time.Sleep(assertAfter)
 
-	delta := endedAt.Sub(startedAt)
-	if delta < 100 {
-		t.Errorf("SetInterval ")
+	if timesInvoked1 != 5 {
+		t.Errorf(`SetInterval with internal cancelation finished earlier/later.
+			 Callback invoked times: %d, want: %d.`, timesInvoked1, maxTimesInvoked)
+	}
+
+	var timesInvoked2 int
+	totalSetIntervalDuration := interval * time.Duration(maxTimesInvoked) * time.Millisecond
+	cancelSetInterval := cable.SetInterval(func() bool {
+		timesInvoked2++
+		return true
+	}, interval*time.Millisecond)
+
+	cable.SetTimeout(func() {
+		cancelSetInterval()
+	}, totalSetIntervalDuration)
+
+	time.Sleep(assertAfter)
+
+	if timesInvoked2 != 5 {
+		t.Errorf(`SetInterval with external cancelation finished earlier/later.
+			 Callback invoked times: %d, want: %d.`, timesInvoked1, maxTimesInvoked)
 	}
 }
 
