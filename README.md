@@ -8,6 +8,25 @@ Utility belt package for scheduling/limiting function calls (throttle, debounce,
 
 ## API
 
+#### func  Throttle
+
+```go
+func Throttle(f func(), interval time.Duration) func()
+```
+Throttle returns a function that no matter how many times it is invoked, it will
+only execute once within the specified interval
+
+#### type ThrottleOptions
+
+```go
+type ThrottleOptions struct {
+	Immediate bool
+}
+```
+
+ThrottleOptions is used to further configure the behavior of a
+throttled-function
+
 #### func  Debounce
 
 ```go
@@ -24,7 +43,8 @@ type DebounceOptions struct {
 }
 ```
 
-DebounceOptions is used to further configure the debounced-function behavior
+DebounceOptions is used to further configure the behavior of a
+debounced-function
 
 #### func  SetInterval
 
@@ -44,14 +64,6 @@ SetTimeout postpones the execution of function f for the specified interval. It
 returns a cancel function which when invoked earlier than the specified
 interval, it will cancel the execution of function f. Note that function f is
 executed in a different goroutine
-
-#### func  Throttle
-
-```go
-func Throttle(f func(), interval time.Duration) func()
-```
-Throttle returns a function that no matter how many times it is invoked, it will
-only execute once within the specified interval
 
 [GoDoc for cable.go](https://godoc.org/github.com/jahnestacado/cable)
 

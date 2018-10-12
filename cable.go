@@ -10,14 +10,29 @@ import (
 	"time"
 )
 
+// ThrottleOptions is used to further configure the behavior of a throttled-function
+type ThrottleOptions struct {
+	Immediate bool
+}
+
 // Throttle returns a function that no matter how many times it is invoked,
 // it will only execute once within the specified interval
-func Throttle(f func(), interval time.Duration) func() {
+func Throttle(f func(), interval time.Duration, options ThrottleOptions) func() {
 	var last time.Time
 	noop := func() {}
 	var access sync.Mutex
 	cancel := noop
+
+	immediateDone := false
+	handleImmediate := func() {
+		if options.Immediate && !immediateDone {
+			f()
+			immediateDone = true
+		}
+	}
+
 	return func() {
+		handleImmediate()
 		now := time.Now()
 		access.Lock()
 		delta := now.Sub(last)
@@ -38,7 +53,7 @@ func Throttle(f func(), interval time.Duration) func() {
 	}
 }
 
-// DebounceOptions is used to further configure the debounced-function behavior
+// DebounceOptions is used to further configure the behavior of a debounced-function
 type DebounceOptions struct {
 	Immediate bool
 }

@@ -79,36 +79,57 @@ func Test_SetInterval(t *testing.T) {
 func Test_Throttle(t *testing.T) {
 	throttleInterval := 33 * time.Millisecond
 	executionInterval := 5 * time.Millisecond
-	totalExecutionInterval := 200 * time.Millisecond
-	var timesInvoked int
+	setIntervalMaxDuration := 200 * time.Millisecond
 
-	throttledFunc := cable.Throttle(func() {
-		timesInvoked++
-	}, throttleInterval)
+	var timesInvoked1 int
+	throttledFunc1 := cable.Throttle(func() {
+		timesInvoked1++
+	}, throttleInterval, cable.ThrottleOptions{})
 
-	startedAt := time.Now()
+	startedAt1 := time.Now()
 	cable.SetInterval(func() bool {
-		delta := time.Now().Sub(startedAt)
-		throttledFunc()
-		if delta > totalExecutionInterval {
+		delta := time.Now().Sub(startedAt1)
+		throttledFunc1()
+		if delta > setIntervalMaxDuration {
 			return false
 		}
 		return true
 	}, executionInterval)
 
-	time.Sleep(totalExecutionInterval + throttleInterval + executionInterval)
-
-	maxExpectedInvocations := 7
-	if timesInvoked != maxExpectedInvocations {
+	time.Sleep(setIntervalMaxDuration + throttleInterval + executionInterval)
+	expectedInvocations1 := 7
+	if timesInvoked1 != expectedInvocations1 {
 		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.",
-			timesInvoked, maxExpectedInvocations)
+			timesInvoked1, expectedInvocations1)
+	}
+
+	var timesInvoked2 int
+	throttledFunc2 := cable.Throttle(func() {
+		timesInvoked2++
+	}, throttleInterval, cable.ThrottleOptions{Immediate: true})
+
+	startedAt2 := time.Now()
+	cable.SetInterval(func() bool {
+		delta := time.Now().Sub(startedAt2)
+		throttledFunc2()
+		if delta > setIntervalMaxDuration {
+			return false
+		}
+		return true
+	}, executionInterval)
+
+	time.Sleep(setIntervalMaxDuration + throttleInterval + executionInterval)
+	expectedInvocations2 := expectedInvocations1 + 1
+	if timesInvoked2 != expectedInvocations2 {
+		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.",
+			timesInvoked2, expectedInvocations2)
 	}
 }
 
 func Test_Debounce(t *testing.T) {
 	debounceInterval := 30 * time.Millisecond
 	executionInterval := 5 * time.Millisecond
-	totalExecutionInterval := 200 * time.Millisecond
+	setIntervalMaxDuration := 200 * time.Millisecond
 	var timesInvoked1 int
 	var timesInvoked2 int
 	var startedAt time.Time
@@ -120,7 +141,7 @@ func Test_Debounce(t *testing.T) {
 			t.Errorf("Debounced callback has not been invoked the expected maximum amount of times: %d, want: %d.",
 				timesInvoked1, maxExpectedInvocations)
 		}
-		if time.Now().Sub(startedAt) <= totalExecutionInterval {
+		if time.Now().Sub(startedAt) <= setIntervalMaxDuration {
 			t.Errorf("Debounced callback has not been invoked sooner than expected")
 		}
 	}, debounceInterval, cable.DebounceOptions{})
@@ -133,11 +154,11 @@ func Test_Debounce(t *testing.T) {
 			t.Errorf("Debounced immediate callback has not been invoked the expected maximum amount of times: %d, want <=: %d.",
 				timesInvoked2, maxExpectedtimesInvoked2)
 		}
-		if timesInvoked2 == 1 && delta >= totalExecutionInterval {
+		if timesInvoked2 == 1 && delta >= setIntervalMaxDuration {
 			t.Errorf("Debounced immediate callback has been invoked later than expected")
 		}
 
-		if timesInvoked2 == 2 && delta <= totalExecutionInterval {
+		if timesInvoked2 == 2 && delta <= setIntervalMaxDuration {
 			t.Errorf("Debounced immediate callback has been invoked earlier than expected")
 		}
 
@@ -148,7 +169,7 @@ func Test_Debounce(t *testing.T) {
 		delta := time.Now().Sub(startedAt)
 		debouncedFunc()
 		debouncedImmediateFunc()
-		if delta > totalExecutionInterval {
+		if delta > setIntervalMaxDuration {
 			return false
 		}
 		return true
