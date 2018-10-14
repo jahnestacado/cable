@@ -10,8 +10,8 @@
     <a href="https://codecov.io/gh/jahnestacado/cable">
   <img src="https://codecov.io/gh/jahnestacado/cable/branch/master/graph/badge.svg" />
 </a>
-  </p>
   <img src="https://github.com/jahnestacado/cable/blob/master/resources/cable-img.webp?raw=true" /img>
+  </p>
 </p>
 
 # Cable
