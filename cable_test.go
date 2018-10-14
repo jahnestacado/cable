@@ -42,8 +42,8 @@ func Test_SetTimeout(t *testing.T) {
 func Test_SetInterval(t *testing.T) {
 	interval := time.Duration(20)
 	maxTimesInvoked := 5
-	timeWindow := 10 * time.Millisecond
-	assertAfter := interval*time.Duration(maxTimesInvoked)*time.Millisecond + timeWindow
+	timeWindow := 1 * time.Millisecond
+	assertAfter := (interval * time.Duration(maxTimesInvoked+1) * time.Millisecond) - timeWindow
 	var access sync.Mutex
 
 	var timesInvoked1 int
@@ -67,7 +67,7 @@ func Test_SetInterval(t *testing.T) {
 	access.Unlock()
 
 	var timesInvoked2 int
-	totalSetIntervalDuration := interval * time.Duration(maxTimesInvoked) * time.Millisecond
+	totalSetIntervalDuration := (interval*time.Duration(maxTimesInvoked))*time.Millisecond + timeWindow
 	cancelSetInterval := cable.SetInterval(func() bool {
 		access.Lock()
 		defer access.Unlock()
