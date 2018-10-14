@@ -1,0 +1,13 @@
+language: go
+
+go:
+  - 1.9.x
+
+script:
+  - go test -race -coverprofile=coverage.txt -covermode=atomic
+
+env:
+    - CODECOV_TOKEN="baa83d9a-c6e3-46d0-afd3-e725394642d4"
+    
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
