@@ -12,6 +12,7 @@
 </a>
   </p>
 </p>
+
 # cable
 Utility belt package for scheduling/limiting function calls (throttle, debounce, setTimeout, setInterval)
 ![](https://github.com/jahnestacado/cable/blob/master/resources/cable-img.webp?raw=true)
