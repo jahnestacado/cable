@@ -6,13 +6,13 @@ package cable_test
 
 import (
 	"cable"
+	"sync"
 	"testing"
 	"time"
 )
 
 func Test_SetTimeout(t *testing.T) {
 	timeoutInterval1 := 100 * time.Millisecond
-
 	calledAt := time.Now()
 	cable.SetTimeout(func() {
 		executedAt := time.Now()
@@ -43,8 +43,12 @@ func Test_SetInterval(t *testing.T) {
 	maxTimesInvoked := 5
 	timeWindow := 10 * time.Millisecond
 	assertAfter := interval*time.Duration(maxTimesInvoked)*time.Millisecond + timeWindow
+	var access sync.Mutex
+
 	var timesInvoked1 int
 	cable.SetInterval(func() bool {
+		access.Lock()
+		defer access.Unlock()
 		timesInvoked1++
 		if timesInvoked1 == maxTimesInvoked {
 			return false
@@ -53,14 +57,19 @@ func Test_SetInterval(t *testing.T) {
 	}, interval*time.Millisecond)
 
 	time.Sleep(assertAfter)
+
+	access.Lock()
 	if timesInvoked1 != 5 {
 		t.Errorf(`SetInterval with internal cancelation finished earlier/later.
 			 Callback invoked times: %d, want: %d.`, timesInvoked1, maxTimesInvoked)
 	}
+	access.Unlock()
 
 	var timesInvoked2 int
 	totalSetIntervalDuration := interval * time.Duration(maxTimesInvoked) * time.Millisecond
 	cancelSetInterval := cable.SetInterval(func() bool {
+		access.Lock()
+		defer access.Unlock()
 		timesInvoked2++
 		return true
 	}, interval*time.Millisecond)
@@ -70,20 +79,25 @@ func Test_SetInterval(t *testing.T) {
 	}, totalSetIntervalDuration)
 
 	time.Sleep(assertAfter)
+	access.Lock()
 	if timesInvoked2 != 5 {
 		t.Errorf(`SetInterval with external cancelation finished earlier/later.
 			 Callback invoked times: %d, want: %d.`, timesInvoked2, maxTimesInvoked)
 	}
+	access.Unlock()
 }
 
 func Test_Throttle(t *testing.T) {
 	throttleInterval := 33 * time.Millisecond
 	executionInterval := 5 * time.Millisecond
 	setIntervalMaxDuration := 200 * time.Millisecond
+	var access sync.Mutex
 
 	var timesInvoked1 int
 	throttledFunc1 := cable.Throttle(func() {
+		access.Lock()
 		timesInvoked1++
+		access.Unlock()
 	}, throttleInterval, cable.ThrottleOptions{})
 
 	startedAt1 := time.Now()
@@ -98,14 +112,18 @@ func Test_Throttle(t *testing.T) {
 
 	time.Sleep(setIntervalMaxDuration + throttleInterval + executionInterval)
 	expectedInvocations1 := 7
+	access.Lock()
 	if timesInvoked1 != expectedInvocations1 {
 		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.",
 			timesInvoked1, expectedInvocations1)
 	}
+	access.Unlock()
 
 	var timesInvoked2 int
 	throttledFunc2 := cable.Throttle(func() {
+		access.Lock()
 		timesInvoked2++
+		access.Unlock()
 	}, throttleInterval, cable.ThrottleOptions{Immediate: true})
 
 	startedAt2 := time.Now()
@@ -120,10 +138,12 @@ func Test_Throttle(t *testing.T) {
 
 	time.Sleep(setIntervalMaxDuration + throttleInterval + executionInterval)
 	expectedInvocations2 := expectedInvocations1 + 1
+	access.Lock()
 	if timesInvoked2 != expectedInvocations2 {
 		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.",
 			timesInvoked2, expectedInvocations2)
 	}
+	access.Unlock()
 }
 
 func Test_Debounce(t *testing.T) {
