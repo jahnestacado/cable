@@ -11,11 +11,11 @@
   <img src="https://codecov.io/gh/jahnestacado/cable/branch/master/graph/badge.svg" />
 </a>
   </p>
+  <img src="https://github.com/jahnestacado/cable/blob/master/resources/cable-img.webp?raw=true" /img>
 </p>
 
-
-`cable` is a utility belt package for scheduling/limiting function calls (throttle, debounce, setTimeout, setInterval)
-![](https://github.com/jahnestacado/cable/blob/master/resources/cable-img.webp?raw=true)
+# Cable
+Utility belt package for scheduling/limiting function calls (throttle, debounce, setTimeout, setInterval)
 
 ## Install
 ```go get github.com/jahnestacado/cable```
