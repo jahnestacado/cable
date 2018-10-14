@@ -103,7 +103,7 @@ func SetInterval(f func() bool, interval time.Duration) func() {
 	var access sync.Mutex
 	shouldContinue := true
 	go (func() {
-		for _ = range time.Tick(interval) {
+		for range time.Tick(interval) {
 			access.Lock()
 			if !shouldContinue {
 				access.Unlock()
