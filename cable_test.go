@@ -5,10 +5,11 @@
 package cable_test
 
 import (
-	"cable"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jahnestacado/cable"
 )
 
 func Test_SetTimeout(t *testing.T) {
