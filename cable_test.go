@@ -10,191 +10,177 @@ import (
 	"time"
 
 	"github.com/jahnestacado/cable"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_SetTimeout(t *testing.T) {
-	timeoutInterval1 := 100 * time.Millisecond
-	calledAt := time.Now()
-	cable.SetTimeout(func() {
-		executedAt := time.Now()
-		delta := executedAt.Sub(calledAt)
-		if delta <= timeoutInterval1 {
-			t.Errorf("SetTimeout callback was called earlier: %d, want >: %d.", delta, timeoutInterval1)
-		}
+	t.Run("should be invoked after the interval", func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(1)
+		timeoutInterval := 10 * time.Millisecond
 
-	}, timeoutInterval1)
-	time.Sleep(200 * time.Millisecond)
+		var executionEnd time.Time
+		executionStart := time.Now()
+		cable.SetTimeout(func() {
+			defer wg.Done()
+			executionEnd = time.Now()
+		}, timeoutInterval)
 
-	timeoutInterval2 := 50 * time.Millisecond
-	isCanceled := true
-	cancel := cable.SetTimeout(func() {
-		isCanceled = false
-	}, timeoutInterval2)
+		wg.Wait()
+		executedAfter := executionEnd.Sub(executionStart)
+		assert.GreaterOrEqual(t, executedAfter.Milliseconds(), timeoutInterval.Milliseconds())
+	})
 
-	cancel()
-	time.Sleep(100 * time.Millisecond)
+	t.Run("should cancel the scheduled function invocation", func(t *testing.T) {
+		timeoutInterval := 50 * time.Millisecond
+		flag := true
+		cancel := cable.SetTimeout(func() {
+			flag = false
+		}, timeoutInterval)
 
-	if !isCanceled {
-		t.Errorf("SetTimeout cancel callback execution failed")
-	}
+		cancel()
+		assert.Equal(t, true, flag)
+	})
 }
 
 func Test_SetInterval(t *testing.T) {
-	interval := time.Duration(20)
-	maxTimesInvoked := 5
-	timeWindow := 1 * time.Millisecond
-	assertAfter := (interval * time.Duration(maxTimesInvoked+1) * time.Millisecond) - timeWindow
-	var access sync.Mutex
+	t.Run("should keep calling the function until it returns false", func(t *testing.T) {
+		var wg sync.WaitGroup
+		interval := time.Duration(20) * time.Millisecond
+		maxTimesInvoked := 5
+		wg.Add(maxTimesInvoked)
 
-	var timesInvoked1 int
-	cable.SetInterval(func() bool {
-		access.Lock()
-		defer access.Unlock()
-		timesInvoked1++
-		if timesInvoked1 == maxTimesInvoked {
-			return false
-		}
-		return true
-	}, interval*time.Millisecond)
+		var timesInvoked int
+		cable.SetInterval(func() bool {
+			timesInvoked++
+			defer wg.Done()
+			if timesInvoked == maxTimesInvoked {
+				return false
+			}
+			return true
+		}, interval)
 
-	time.Sleep(assertAfter)
+		wg.Wait()
+		assert.Equal(t, maxTimesInvoked, timesInvoked)
+	})
 
-	access.Lock()
-	if timesInvoked1 != 5 {
-		t.Errorf(`SetInterval with internal cancelation finished earlier/later.
-			 Callback invoked times: %d, want: %d.`, timesInvoked1, maxTimesInvoked)
-	}
-	access.Unlock()
+	t.Run("should keep calling the function until setInterval is canceled", func(t *testing.T) {
+		maxTimesInvoked := 3
+		interval := time.Duration(10) * time.Millisecond
 
-	var timesInvoked2 int
-	totalSetIntervalDuration := (interval*time.Duration(maxTimesInvoked))*time.Millisecond + timeWindow
-	cancelSetInterval := cable.SetInterval(func() bool {
-		access.Lock()
-		defer access.Unlock()
-		timesInvoked2++
-		return true
-	}, interval*time.Millisecond)
+		var timesInvoked int
+		cancelAfter := interval * time.Duration(maxTimesInvoked)
+		leeway := time.Millisecond
+		cancelSetInterval := cable.SetInterval(func() bool {
+			timesInvoked++
+			return true
+		}, interval)
 
-	cable.SetTimeout(func() {
-		cancelSetInterval()
-	}, totalSetIntervalDuration)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		cable.SetTimeout(func() {
+			cancelSetInterval()
+			wg.Done()
+		}, cancelAfter+leeway)
 
-	time.Sleep(assertAfter)
-	access.Lock()
-	if timesInvoked2 != 5 {
-		t.Errorf(`SetInterval with external cancelation finished earlier/later.
-			 Callback invoked times: %d, want: %d.`, timesInvoked2, maxTimesInvoked)
-	}
-	access.Unlock()
+		wg.Wait()
+		assert.Equal(t, maxTimesInvoked, timesInvoked)
+	})
 }
 
 func Test_Throttle(t *testing.T) {
-	throttleInterval := 33 * time.Millisecond
-	executionInterval := 5 * time.Millisecond
-	setIntervalMaxDuration := 200 * time.Millisecond
-	var access sync.Mutex
-
-	var timesInvoked1 int
-	throttledFunc1 := cable.Throttle(func() {
-		access.Lock()
-		timesInvoked1++
-		access.Unlock()
-	}, throttleInterval, cable.ThrottleOptions{})
-
-	startedAt1 := time.Now()
-	cable.SetInterval(func() bool {
-		delta := time.Now().Sub(startedAt1)
-		throttledFunc1()
-		if delta > setIntervalMaxDuration {
-			return false
-		}
-		return true
-	}, executionInterval)
-
-	time.Sleep(setIntervalMaxDuration + throttleInterval + executionInterval)
-	expectedInvocations1 := 7
-	access.Lock()
-	if timesInvoked1 != expectedInvocations1 {
-		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.",
-			timesInvoked1, expectedInvocations1)
+	type throttleScenario struct {
+		Description         string
+		ExpectedInvocations int
+		ThrottleOptions     cable.ThrottleOptions
 	}
-	access.Unlock()
 
-	var timesInvoked2 int
-	throttledFunc2 := cable.Throttle(func() {
-		access.Lock()
-		timesInvoked2++
-		access.Unlock()
-	}, throttleInterval, cable.ThrottleOptions{Immediate: true})
-
-	startedAt2 := time.Now()
-	cable.SetInterval(func() bool {
-		delta := time.Now().Sub(startedAt2)
-		throttledFunc2()
-		if delta > setIntervalMaxDuration {
-			return false
-		}
-		return true
-	}, executionInterval)
-
-	time.Sleep(setIntervalMaxDuration + throttleInterval + executionInterval)
-	expectedInvocations2 := expectedInvocations1 + 1
-	access.Lock()
-	if timesInvoked2 != expectedInvocations2 {
-		t.Errorf("Throttled callback has not been invoked the expected amount of times: %d, want: %d.",
-			timesInvoked2, expectedInvocations2)
+	throttleIntervalMillis := 10
+	executionIntervalMillis := 5
+	totalInvocations := 100
+	scenarios := []throttleScenario{
+		throttleScenario{
+			Description:         "should throttle function with the expected rate with throttle option 'Immediate' = false",
+			ExpectedInvocations: int((totalInvocations * executionIntervalMillis) / throttleIntervalMillis),
+			ThrottleOptions:     cable.ThrottleOptions{},
+		},
+		throttleScenario{
+			Description:         "should throttle function with the expected rate with throttle option 'Immediate' = true",
+			ExpectedInvocations: int((totalInvocations*executionIntervalMillis)/throttleIntervalMillis) + 1,
+			ThrottleOptions:     cable.ThrottleOptions{Immediate: true},
+		},
 	}
-	access.Unlock()
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.Description, func(t *testing.T) {
+			var access sync.Mutex
+			var timesInvoked int
+			throttledFunc := cable.Throttle(func() {
+				access.Lock()
+				defer access.Unlock()
+				timesInvoked++
+			}, time.Duration(throttleIntervalMillis)*time.Millisecond, scenario.ThrottleOptions)
+
+			for i := 0; i < totalInvocations; i++ {
+				// give a leeway of one extra iteration to allow throttling to kick in
+				if i < totalInvocations-1 {
+					throttledFunc()
+				}
+				time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
+			}
+
+			access.Lock()
+			defer access.Unlock()
+
+			assert.Equal(t, scenario.ExpectedInvocations, timesInvoked)
+		})
+	}
 }
 
 func Test_Debounce(t *testing.T) {
-	debounceInterval := 30 * time.Millisecond
-	executionInterval := 5 * time.Millisecond
-	setIntervalMaxDuration := 200 * time.Millisecond
-	var timesInvoked1 int
-	var timesInvoked2 int
-	var startedAt time.Time
+	type debounceScenario struct {
+		Description         string
+		ExpectedInvocations int
+		DebounceOptions     cable.DebounceOptions
+	}
 
-	maxExpectedInvocations := 1
-	debouncedFunc := cable.Debounce(func() {
-		timesInvoked1++
-		if timesInvoked1 != maxExpectedInvocations {
-			t.Errorf("Debounced callback has not been invoked the expected maximum amount of times: %d, want: %d.",
-				timesInvoked1, maxExpectedInvocations)
-		}
-		if time.Now().Sub(startedAt) <= setIntervalMaxDuration {
-			t.Errorf("Debounced callback has not been invoked sooner than expected")
-		}
-	}, debounceInterval, cable.DebounceOptions{})
+	debounceIntervalMillis := 5
+	executionIntervalMillis := 5
+	totalInvocations := 100
+	scenarios := []debounceScenario{
+		debounceScenario{
+			Description:         "should debounce function with the expected rate with debounce option 'Immediate' = false",
+			ExpectedInvocations: ((totalInvocations * executionIntervalMillis) / (executionIntervalMillis + debounceIntervalMillis)),
+			DebounceOptions:     cable.DebounceOptions{},
+		},
+		debounceScenario{
+			Description:         "should debounce function with the expected rate with debounce option 'Immediate' = true",
+			ExpectedInvocations: (totalInvocations*executionIntervalMillis)/(executionIntervalMillis+debounceIntervalMillis) + 1,
+			DebounceOptions:     cable.DebounceOptions{Immediate: true},
+		},
+	}
 
-	maxExpectedtimesInvoked2 := 2
-	debouncedImmediateFunc := cable.Debounce(func() {
-		timesInvoked2++
-		delta := time.Now().Sub(startedAt)
-		if timesInvoked2 > maxExpectedtimesInvoked2 {
-			t.Errorf("Debounced immediate callback has not been invoked the expected maximum amount of times: %d, want <=: %d.",
-				timesInvoked2, maxExpectedtimesInvoked2)
-		}
-		if timesInvoked2 == 1 && delta >= setIntervalMaxDuration {
-			t.Errorf("Debounced immediate callback has been invoked later than expected")
-		}
+	for _, scenario := range scenarios {
+		t.Run(scenario.Description, func(t *testing.T) {
+			var access sync.Mutex
+			var timesInvoked int
+			debouncedFunc := cable.Debounce(func() {
+				access.Lock()
+				defer access.Unlock()
+				timesInvoked++
+			}, time.Duration(debounceIntervalMillis)*time.Millisecond, scenario.DebounceOptions)
 
-		if timesInvoked2 == 2 && delta <= setIntervalMaxDuration {
-			t.Errorf("Debounced immediate callback has been invoked earlier than expected")
-		}
+			for i := 0; i <= totalInvocations; i++ {
+				if i%2 != 0 {
+					debouncedFunc()
+				}
+				time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
+			}
 
-	}, debounceInterval, cable.DebounceOptions{Immediate: true})
+			access.Lock()
+			defer access.Unlock()
+			assert.Equal(t, scenario.ExpectedInvocations, timesInvoked)
+		})
+	}
 
-	startedAt = time.Now()
-	cable.SetInterval(func() bool {
-		delta := time.Now().Sub(startedAt)
-		debouncedFunc()
-		debouncedImmediateFunc()
-		if delta > setIntervalMaxDuration {
-			return false
-		}
-		return true
-	}, executionInterval)
-
-	time.Sleep(5 * time.Second)
 }
