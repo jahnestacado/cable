@@ -2,56 +2,58 @@
 // * Copyright (c) 2018 Ioannis Tzanellis
 // * Licensed under the MIT License (MIT).
 
-package cable_test
+package cable
 
 import (
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/jahnestacado/cable"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_SetTimeout(t *testing.T) {
 	t.Run("should be invoked after the interval", func(t *testing.T) {
+		assert := assert.New(t)
 		var wg sync.WaitGroup
 		wg.Add(1)
 		timeoutInterval := 10 * time.Millisecond
 
 		var executionEnd time.Time
 		executionStart := time.Now()
-		cable.SetTimeout(func() {
+		SetTimeout(func() {
 			defer wg.Done()
 			executionEnd = time.Now()
 		}, timeoutInterval)
 
 		wg.Wait()
 		executedAfter := executionEnd.Sub(executionStart)
-		assert.GreaterOrEqual(t, executedAfter.Milliseconds(), timeoutInterval.Milliseconds())
+		assert.GreaterOrEqual(executedAfter.Milliseconds(), timeoutInterval.Milliseconds())
 	})
 
 	t.Run("should cancel the scheduled function invocation", func(t *testing.T) {
+		assert := assert.New(t)
 		timeoutInterval := 50 * time.Millisecond
 		flag := true
-		cancel := cable.SetTimeout(func() {
+		cancel := SetTimeout(func() {
 			flag = false
 		}, timeoutInterval)
 
 		cancel()
-		assert.Equal(t, true, flag)
+		assert.Equal(true, flag)
 	})
 }
 
 func Test_SetInterval(t *testing.T) {
 	t.Run("should keep calling the function until it returns false", func(t *testing.T) {
+		assert := assert.New(t)
 		var wg sync.WaitGroup
 		interval := time.Duration(20) * time.Millisecond
 		maxTimesInvoked := 5
 		wg.Add(maxTimesInvoked)
 
 		var timesInvoked int
-		cable.SetInterval(func() bool {
+		SetInterval(func() bool {
 			timesInvoked++
 			defer wg.Done()
 			if timesInvoked == maxTimesInvoked {
@@ -61,30 +63,31 @@ func Test_SetInterval(t *testing.T) {
 		}, interval)
 
 		wg.Wait()
-		assert.Equal(t, maxTimesInvoked, timesInvoked)
+		assert.Equal(maxTimesInvoked, timesInvoked)
 	})
 
 	t.Run("should keep calling the function until setInterval is canceled", func(t *testing.T) {
+		assert := assert.New(t)
 		maxTimesInvoked := 3
 		interval := time.Duration(10) * time.Millisecond
 
 		var timesInvoked int
 		cancelAfter := interval * time.Duration(maxTimesInvoked)
 		leeway := time.Millisecond
-		cancelSetInterval := cable.SetInterval(func() bool {
+		cancelSetInterval := SetInterval(func() bool {
 			timesInvoked++
 			return true
 		}, interval)
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		cable.SetTimeout(func() {
+		SetTimeout(func() {
 			cancelSetInterval()
 			wg.Done()
 		}, cancelAfter+leeway)
 
 		wg.Wait()
-		assert.Equal(t, maxTimesInvoked, timesInvoked)
+		assert.Equal(maxTimesInvoked, timesInvoked)
 	})
 }
 
@@ -92,7 +95,7 @@ func Test_Throttle(t *testing.T) {
 	type throttleScenario struct {
 		Description         string
 		ExpectedInvocations int
-		ThrottleOptions     cable.ThrottleOptions
+		ThrottleOptions     ThrottleOptions
 	}
 
 	throttleIntervalMillis := 10
@@ -102,20 +105,21 @@ func Test_Throttle(t *testing.T) {
 		throttleScenario{
 			Description:         "should throttle function with the expected rate with throttle option 'Immediate' = false",
 			ExpectedInvocations: int((totalInvocations * executionIntervalMillis) / throttleIntervalMillis),
-			ThrottleOptions:     cable.ThrottleOptions{},
+			ThrottleOptions:     ThrottleOptions{},
 		},
 		throttleScenario{
 			Description:         "should throttle function with the expected rate with throttle option 'Immediate' = true",
 			ExpectedInvocations: int((totalInvocations*executionIntervalMillis)/throttleIntervalMillis) + 1,
-			ThrottleOptions:     cable.ThrottleOptions{Immediate: true},
+			ThrottleOptions:     ThrottleOptions{Immediate: true},
 		},
 	}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.Description, func(t *testing.T) {
+			assert := assert.New(t)
 			var access sync.Mutex
 			var timesInvoked int
-			throttledFunc := cable.Throttle(func() {
+			throttledFunc := Throttle(func() {
 				access.Lock()
 				defer access.Unlock()
 				timesInvoked++
@@ -132,7 +136,7 @@ func Test_Throttle(t *testing.T) {
 			access.Lock()
 			defer access.Unlock()
 
-			assert.Equal(t, scenario.ExpectedInvocations, timesInvoked)
+			assert.Equal(scenario.ExpectedInvocations, timesInvoked)
 		})
 	}
 }
@@ -141,7 +145,7 @@ func Test_Debounce(t *testing.T) {
 	type debounceScenario struct {
 		Description         string
 		ExpectedInvocations int
-		DebounceOptions     cable.DebounceOptions
+		DebounceOptions     DebounceOptions
 	}
 
 	debounceIntervalMillis := 5
@@ -151,20 +155,21 @@ func Test_Debounce(t *testing.T) {
 		debounceScenario{
 			Description:         "should debounce function with the expected rate with debounce option 'Immediate' = false",
 			ExpectedInvocations: ((totalInvocations * executionIntervalMillis) / (executionIntervalMillis + debounceIntervalMillis)),
-			DebounceOptions:     cable.DebounceOptions{},
+			DebounceOptions:     DebounceOptions{},
 		},
 		debounceScenario{
 			Description:         "should debounce function with the expected rate with debounce option 'Immediate' = true",
 			ExpectedInvocations: (totalInvocations*executionIntervalMillis)/(executionIntervalMillis+debounceIntervalMillis) + 1,
-			DebounceOptions:     cable.DebounceOptions{Immediate: true},
+			DebounceOptions:     DebounceOptions{Immediate: true},
 		},
 	}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.Description, func(t *testing.T) {
+			assert := assert.New(t)
 			var access sync.Mutex
 			var timesInvoked int
-			debouncedFunc := cable.Debounce(func() {
+			debouncedFunc := Debounce(func() {
 				access.Lock()
 				defer access.Unlock()
 				timesInvoked++
@@ -179,7 +184,7 @@ func Test_Debounce(t *testing.T) {
 
 			access.Lock()
 			defer access.Unlock()
-			assert.Equal(t, scenario.ExpectedInvocations, timesInvoked)
+			assert.Equal(scenario.ExpectedInvocations, timesInvoked)
 		})
 	}
 
