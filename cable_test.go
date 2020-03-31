@@ -17,27 +17,27 @@ func Test_SetTimeout(t *testing.T) {
 		assert := assert.New(t)
 		var wg sync.WaitGroup
 		wg.Add(1)
-		timeoutInterval := 10 * time.Millisecond
+		interval := 10 * time.Millisecond
 
 		var executionEnd time.Time
 		executionStart := time.Now()
-		SetTimeout(func() {
+		ExecuteIn(interval, func() {
 			defer wg.Done()
 			executionEnd = time.Now()
-		}, timeoutInterval)
+		})
 
 		wg.Wait()
 		executedAfter := executionEnd.Sub(executionStart)
-		assert.GreaterOrEqual(executedAfter.Milliseconds(), timeoutInterval.Milliseconds())
+		assert.GreaterOrEqual(executedAfter.Milliseconds(), interval.Milliseconds())
 	})
 
 	t.Run("should cancel the scheduled function invocation", func(t *testing.T) {
 		assert := assert.New(t)
-		timeoutInterval := 50 * time.Millisecond
+		interval := 50 * time.Millisecond
 		flag := true
-		cancel := SetTimeout(func() {
+		cancel := ExecuteIn(interval, func() {
 			flag = false
-		}, timeoutInterval)
+		})
 
 		cancel()
 		assert.Equal(true, flag)
@@ -53,14 +53,14 @@ func Test_SetInterval(t *testing.T) {
 		wg.Add(maxTimesInvoked)
 
 		var timesInvoked int
-		SetInterval(func() bool {
+		ExecuteEvery(interval, func() bool {
 			timesInvoked++
 			defer wg.Done()
 			if timesInvoked == maxTimesInvoked {
 				return false
 			}
 			return true
-		}, interval)
+		})
 
 		wg.Wait()
 		assert.Equal(maxTimesInvoked, timesInvoked)
@@ -74,17 +74,17 @@ func Test_SetInterval(t *testing.T) {
 		var timesInvoked int
 		cancelAfter := interval * time.Duration(maxTimesInvoked)
 		leeway := time.Millisecond
-		cancelSetInterval := SetInterval(func() bool {
+		cancelSetInterval := ExecuteEvery(interval, func() bool {
 			timesInvoked++
 			return true
-		}, interval)
+		})
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		SetTimeout(func() {
+		ExecuteIn(cancelAfter+leeway, func() {
 			cancelSetInterval()
 			wg.Done()
-		}, cancelAfter+leeway)
+		})
 
 		wg.Wait()
 		assert.Equal(maxTimesInvoked, timesInvoked)

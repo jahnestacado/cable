@@ -42,12 +42,12 @@ func Throttle(f func(), interval time.Duration, options ThrottleOptions) func() 
 			f()
 			access.Unlock()
 		} else {
-			cancel = SetTimeout(func() {
+			cancel = ExecuteIn(interval, func() {
 				access.Lock()
 				last = now
 				f()
 				access.Unlock()
-			}, interval)
+			})
 			access.Unlock()
 		}
 	}
@@ -69,14 +69,14 @@ func Debounce(f func(), interval time.Duration, options DebounceOptions) func() 
 	cancel := handleImmediateCall
 	return func() {
 		cancel()
-		cancel = SetTimeout(f, interval)
+		cancel = ExecuteIn(interval, f)
 	}
 }
 
-// SetTimeout postpones the execution of function f for the specified interval.
+// ExecuteIn postpones the execution of function f for the specified interval.
 // It returns a cancel function which when invoked earlier than the specified interval, it will
 // cancel the execution of function f. Note that function f is executed in a different goroutine
-func SetTimeout(f func(), interval time.Duration) func() {
+func ExecuteIn(interval time.Duration, f func()) func() {
 	var isCanceled bool
 	var access sync.Mutex
 	go (func() {
@@ -96,10 +96,10 @@ func SetTimeout(f func(), interval time.Duration) func() {
 	return cancel
 }
 
-// SetInterval executes function f repeatedly with a fixed time delay(interval) between each call
+// ExecuteEvery executes function f repeatedly with a fixed time delay(interval) between each call
 // until function f returns false. It returns a cancel function which can be used to cancel aswell
 // the execution of function f
-func SetInterval(f func() bool, interval time.Duration) func() {
+func ExecuteEvery(interval time.Duration, f func() bool) func() {
 	var access sync.Mutex
 	shouldContinue := true
 	go (func() {

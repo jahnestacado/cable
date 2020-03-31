@@ -1,6 +1,6 @@
 <p align="center">
   <p align="center">
-  <a href="https://travis-ci.org/jahnestacado/cable"><img alt="build" 
+  <a href="https://travis-ci.org/jahnestacado/cable"><img alt="build"
   src="https://travis-ci.org/jahnestacado/cable.svg?branch=master"></a>
     <a href="https://github.com/jahnestacado/cable/blob/master/LICENSE"><img alt="Software License" src="https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square"></a>
     <a href="https://goreportcard.com/report/github.com/jahnestacado/cable"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/jahnestacado/cable?style=flat-square&fuckgithubcache=1"></a>
@@ -15,18 +15,21 @@
 </p>
 
 # Cable
+
 Utility belt package for scheduling/limiting function calls (throttle, debounce, setTimeout, setInterval)
 
 ## Install
-```go get github.com/jahnestacado/cable```
+
+`go get github.com/jahnestacado/cable`
 
 ## API
 
-#### func  Throttle
+#### func Throttle
 
 ```go
-func Throttle(f func(), interval time.Duration) func()
+func Throttle(f func(), interval time.Duration, options ThrottleOptions) func()
 ```
+
 Throttle returns a function that no matter how many times it is invoked, it will
 only execute once within the specified interval
 
@@ -41,11 +44,12 @@ type ThrottleOptions struct {
 ThrottleOptions is used to further configure the behavior of a
 throttled-function
 
-#### func  Debounce
+#### func Debounce
 
 ```go
 func Debounce(f func(), interval time.Duration, options DebounceOptions) func()
 ```
+
 Debounce returns a function that no matter how many times it is invoked, it will
 only execute after the specified interval has passed from its last invocation
 
@@ -60,21 +64,23 @@ type DebounceOptions struct {
 DebounceOptions is used to further configure the behavior of a
 debounced-function
 
-#### func  SetInterval
+#### func ExecuteEvery
 
 ```go
-func SetInterval(f func() bool, interval time.Duration) func()
+func ExecuteEvery(interval time.Duration, f func() bool) func()
 ```
-SetInterval executes function f repeatedly with a fixed time delay(interval)
+
+ExecuteEvery executes function f repeatedly with a fixed time delay(interval)
 between each call until function f returns false. It returns a cancel function
 which can be used to cancel aswell the execution of function f
 
-#### func  SetTimeout
+#### func ExecuteIn
 
 ```go
-func SetTimeout(f func(), interval time.Duration) func()
+func ExecuteIn(interval time.Duration, f func()) func()
 ```
-SetTimeout postpones the execution of function f for the specified interval. It
+
+ExecuteIn postpones the execution of function f for the specified interval. It
 returns a cancel function which when invoked earlier than the specified
 interval, it will cancel the execution of function f. Note that function f is
 executed in a different goroutine
@@ -82,9 +88,6 @@ executed in a different goroutine
 [GoDoc for cable.go](https://godoc.org/github.com/jahnestacado/cable)
 
 ## License
+
 Copyright (c) 2018 Ioannis Tzanellis<br>
-[Released under the MIT license](https://github.com/jahnestacado/cable/blob/master/LICENSE) 
-
-
-
-
+[Released under the MIT license](https://github.com/jahnestacado/cable/blob/master/LICENSE)
