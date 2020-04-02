@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_SetTimeout(t *testing.T) {
+func Test_ExecuteIn(t *testing.T) {
 	t.Run("should be invoked after the interval", func(t *testing.T) {
 		assert := assert.New(t)
 		var wg sync.WaitGroup
@@ -44,7 +44,7 @@ func Test_SetTimeout(t *testing.T) {
 	})
 }
 
-func Test_SetInterval(t *testing.T) {
+func Test_ExecuteEvery(t *testing.T) {
 	t.Run("should keep calling the function until it returns false", func(t *testing.T) {
 		assert := assert.New(t)
 		var wg sync.WaitGroup
@@ -91,101 +91,168 @@ func Test_SetInterval(t *testing.T) {
 	})
 }
 
-func Test_Throttle(t *testing.T) {
-	type throttleScenario struct {
-		Description         string
-		ExpectedInvocations int
-		ThrottleOptions     ThrottleOptions
-	}
+func Test_ExecuteEveryImmediate(t *testing.T) {
+	t.Run("should should call fn immediately keep calling the function until it returns false", func(t *testing.T) {
+		assert := assert.New(t)
+		var wg sync.WaitGroup
+		interval := time.Duration(20) * time.Millisecond
+		maxTimesInvoked := 5
+		wg.Add(maxTimesInvoked)
 
-	throttleIntervalMillis := 10
-	executionIntervalMillis := 5
-	totalInvocations := 100
-	scenarios := []throttleScenario{
-		throttleScenario{
-			Description:         "should throttle function with the expected rate with throttle option 'Immediate' = false",
-			ExpectedInvocations: int((totalInvocations * executionIntervalMillis) / throttleIntervalMillis),
-			ThrottleOptions:     ThrottleOptions{},
-		},
-		throttleScenario{
-			Description:         "should throttle function with the expected rate with throttle option 'Immediate' = true",
-			ExpectedInvocations: int((totalInvocations*executionIntervalMillis)/throttleIntervalMillis) + 1,
-			ThrottleOptions:     ThrottleOptions{Immediate: true},
-		},
-	}
-
-	for _, scenario := range scenarios {
-		t.Run(scenario.Description, func(t *testing.T) {
-			assert := assert.New(t)
-			var access sync.Mutex
-			var timesInvoked int
-			throttledFunc := Throttle(func() {
-				access.Lock()
-				defer access.Unlock()
-				timesInvoked++
-			}, time.Duration(throttleIntervalMillis)*time.Millisecond, scenario.ThrottleOptions)
-
-			for i := 0; i < totalInvocations; i++ {
-				// give a leeway of one extra iteration to allow throttling to kick in
-				if i < totalInvocations-1 {
-					throttledFunc()
-				}
-				time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
+		var timesInvoked int
+		ExecuteEveryImmediate(interval, func() bool {
+			timesInvoked++
+			defer wg.Done()
+			if timesInvoked == maxTimesInvoked {
+				return false
 			}
+			return true
+		})
 
+		wg.Wait()
+		assert.Equal(maxTimesInvoked, timesInvoked)
+	})
+
+	t.Run("should call fn immediately and keep calling the function until setInterval is canceled", func(t *testing.T) {
+		assert := assert.New(t)
+		maxTimesInvoked := 3
+		expectedInvocations := maxTimesInvoked + 1
+		interval := time.Duration(10) * time.Millisecond
+
+		var timesInvoked int
+		cancelAfter := interval * time.Duration(maxTimesInvoked)
+		leeway := time.Millisecond
+		cancelSetInterval := ExecuteEveryImmediate(interval, func() bool {
+			timesInvoked++
+			return true
+		})
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		ExecuteIn(cancelAfter+leeway, func() {
+			cancelSetInterval()
+			wg.Done()
+		})
+
+		wg.Wait()
+		assert.Equal(expectedInvocations, timesInvoked)
+	})
+}
+
+func Test_Throttle(t *testing.T) {
+	throttleIntervalMillis := 10
+	executionIntervalMillis := 6
+	totalInvocations := 10
+	expectedInvocations := int((totalInvocations * executionIntervalMillis) / throttleIntervalMillis)
+
+	t.Run("should throttle function with the expected rate", func(t *testing.T) {
+		assert := assert.New(t)
+		var access sync.Mutex
+		var timesInvoked int
+		throttledFunc := Throttle(func() {
 			access.Lock()
 			defer access.Unlock()
+			timesInvoked++
+		}, time.Duration(throttleIntervalMillis)*time.Millisecond)
 
-			assert.Equal(scenario.ExpectedInvocations, timesInvoked)
-		})
-	}
+		for i := 0; i < totalInvocations; i++ {
+			throttledFunc()
+			time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
+		}
+		// give a leeway of one extra iteration to allow throttling to kick in
+		time.Sleep(time.Duration(throttleIntervalMillis) * time.Millisecond)
+
+		access.Lock()
+		defer access.Unlock()
+
+		assert.Equal(expectedInvocations, timesInvoked)
+	})
+}
+
+func Test_ThrottleImmediate(t *testing.T) {
+	throttleIntervalMillis := 10
+	executionIntervalMillis := 6
+	totalInvocations := 10
+	expectedInvocations := int((totalInvocations*executionIntervalMillis)/throttleIntervalMillis) + 1
+
+	t.Run("should throttle function with the expected rate", func(t *testing.T) {
+		assert := assert.New(t)
+		var access sync.Mutex
+		var timesInvoked int
+		throttledFunc := ThrottleImmediate(func() {
+			access.Lock()
+			defer access.Unlock()
+			timesInvoked++
+		}, time.Duration(throttleIntervalMillis)*time.Millisecond)
+
+		for i := 0; i < totalInvocations; i++ {
+			throttledFunc()
+			time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
+		}
+		// give a leeway of one extra iteration to allow throttling to kick in
+		time.Sleep(time.Duration(throttleIntervalMillis) * time.Millisecond)
+
+		access.Lock()
+		defer access.Unlock()
+
+		assert.Equal(expectedInvocations, timesInvoked)
+	})
 }
 
 func Test_Debounce(t *testing.T) {
-	type debounceScenario struct {
-		Description         string
-		ExpectedInvocations int
-		DebounceOptions     DebounceOptions
-	}
-
 	debounceIntervalMillis := 5
 	executionIntervalMillis := 5
 	totalInvocations := 100
-	scenarios := []debounceScenario{
-		debounceScenario{
-			Description:         "should debounce function with the expected rate with debounce option 'Immediate' = false",
-			ExpectedInvocations: ((totalInvocations * executionIntervalMillis) / (executionIntervalMillis + debounceIntervalMillis)),
-			DebounceOptions:     DebounceOptions{},
-		},
-		debounceScenario{
-			Description:         "should debounce function with the expected rate with debounce option 'Immediate' = true",
-			ExpectedInvocations: (totalInvocations*executionIntervalMillis)/(executionIntervalMillis+debounceIntervalMillis) + 1,
-			DebounceOptions:     DebounceOptions{Immediate: true},
-		},
-	}
+	expectedInvocations := ((totalInvocations * executionIntervalMillis) / (executionIntervalMillis + debounceIntervalMillis))
 
-	for _, scenario := range scenarios {
-		t.Run(scenario.Description, func(t *testing.T) {
-			assert := assert.New(t)
-			var access sync.Mutex
-			var timesInvoked int
-			debouncedFunc := Debounce(func() {
-				access.Lock()
-				defer access.Unlock()
-				timesInvoked++
-			}, time.Duration(debounceIntervalMillis)*time.Millisecond, scenario.DebounceOptions)
-
-			for i := 0; i <= totalInvocations; i++ {
-				if i%2 != 0 {
-					debouncedFunc()
-				}
-				time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
-			}
-
+	t.Run("should debounce function with the expected rate", func(t *testing.T) {
+		assert := assert.New(t)
+		var access sync.Mutex
+		var timesInvoked int
+		debouncedFunc := Debounce(func() {
 			access.Lock()
 			defer access.Unlock()
-			assert.Equal(scenario.ExpectedInvocations, timesInvoked)
-		})
-	}
+			timesInvoked++
+		}, time.Duration(debounceIntervalMillis)*time.Millisecond)
 
+		for i := 0; i <= totalInvocations; i++ {
+			if i%2 != 0 {
+				debouncedFunc()
+			}
+			time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
+		}
+
+		access.Lock()
+		defer access.Unlock()
+		assert.Equal(expectedInvocations, timesInvoked)
+	})
+}
+
+func Test_DebounceImmediate(t *testing.T) {
+	debounceIntervalMillis := 5
+	executionIntervalMillis := 5
+	totalInvocations := 100
+	expectedInvocations := ((totalInvocations * executionIntervalMillis) / (executionIntervalMillis + debounceIntervalMillis)) + 1
+
+	t.Run("should debounce function with the expected rate", func(t *testing.T) {
+		assert := assert.New(t)
+		var access sync.Mutex
+		var timesInvoked int
+		debouncedFunc := DebounceImmediate(func() {
+			access.Lock()
+			defer access.Unlock()
+			timesInvoked++
+		}, time.Duration(debounceIntervalMillis)*time.Millisecond)
+
+		for i := 0; i <= totalInvocations; i++ {
+			if i%2 != 0 {
+				debouncedFunc()
+			}
+			time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
+		}
+
+		access.Lock()
+		defer access.Unlock()
+		assert.Equal(expectedInvocations, timesInvoked)
+	})
 }
