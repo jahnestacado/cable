@@ -16,7 +16,7 @@
 
 # Cable
 
-Utility belt package for scheduling/limiting function calls (throttle, debounce, setTimeout, setInterval)
+Utility belt package for scheduling/limiting function calls
 
 ## Install
 
@@ -24,68 +24,7 @@ Utility belt package for scheduling/limiting function calls (throttle, debounce,
 
 ## API
 
-#### func Throttle
-
-```go
-func Throttle(f func(), interval time.Duration, options ThrottleOptions) func()
-```
-
-Throttle returns a function that no matter how many times it is invoked, it will
-only execute once within the specified interval
-
-#### type ThrottleOptions
-
-```go
-type ThrottleOptions struct {
-	Immediate bool
-}
-```
-
-ThrottleOptions is used to further configure the behavior of a
-throttled-function
-
-#### func Debounce
-
-```go
-func Debounce(f func(), interval time.Duration, options DebounceOptions) func()
-```
-
-Debounce returns a function that no matter how many times it is invoked, it will
-only execute after the specified interval has passed from its last invocation
-
-#### type DebounceOptions
-
-```go
-type DebounceOptions struct {
-	Immediate bool
-}
-```
-
-DebounceOptions is used to further configure the behavior of a
-debounced-function
-
-#### func ExecuteEvery
-
-```go
-func ExecuteEvery(interval time.Duration, f func() bool) func()
-```
-
-ExecuteEvery executes function f repeatedly with a fixed time delay(interval)
-between each call until function f returns false. It returns a cancel function
-which can be used to cancel aswell the execution of function f
-
-#### func ExecuteIn
-
-```go
-func ExecuteIn(interval time.Duration, f func()) func()
-```
-
-ExecuteIn postpones the execution of function f for the specified interval. It
-returns a cancel function which when invoked earlier than the specified
-interval, it will cancel the execution of function f. Note that function f is
-executed in a different goroutine
-
-[GoDoc for cable.go](https://godoc.org/github.com/jahnestacado/cable)
+[Check GoDocs](https://godoc.org/github.com/jahnestacado/cable)
 
 ## License
 
