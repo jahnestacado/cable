@@ -1,5 +1,5 @@
 // * cable <https://github.com/jahnestacado/cable>
-// * Copyright (c) 2018 Ioannis Tzanellis
+// * Copyright (c) 2020 Ioannis Tzanellis
 // * Licensed under the MIT License (MIT).
 
 // Package cable implements utility functions for scheduling/limiting function calls
@@ -27,38 +27,40 @@ func ThrottleImmediate(fn func(), interval time.Duration) func() {
 }
 
 func throttle(fn func(), interval time.Duration, options throttleOptions) func() {
-	var last time.Time
-	noop := func() {}
-	var access sync.Mutex
-	cancel := noop
+	invocationChannel := make(chan time.Time)
+	once := new(sync.Once)
 
-	immediateDone := false
-	handleImmediate := func() {
-		if options.Immediate && !immediateDone {
-			fn()
-			immediateDone = true
+	go func() {
+		lastInvokedAt := time.Now()
+		timer := time.AfterFunc(interval, func() {})
+		for invocationOccuredAt := range invocationChannel {
+			timer.Stop()
+
+			once.Do(func() {
+				if options.Immediate {
+					fn()
+					lastInvokedAt = invocationOccuredAt
+				}
+			})
+
+			delta := invocationOccuredAt.Sub(lastInvokedAt)
+
+			if delta > interval || invocationOccuredAt.IsZero() || lastInvokedAt.IsZero() {
+				lastInvokedAt = invocationOccuredAt
+				fn()
+				continue
+			}
+
+			timer = time.AfterFunc(interval, func() {
+				var zeroTime time.Time
+				invocationChannel <- zeroTime
+			})
+
 		}
-	}
+	}()
 
 	return func() {
-		handleImmediate()
-		now := time.Now()
-		access.Lock()
-		delta := now.Sub(last)
-		cancel()
-		if delta > interval || last.IsZero() {
-			last = now
-			fn()
-			access.Unlock()
-		} else {
-			cancel = ExecuteIn(interval, func() {
-				access.Lock()
-				last = now
-				fn()
-				access.Unlock()
-			})
-			access.Unlock()
-		}
+		invocationChannel <- time.Now()
 	}
 }
 
@@ -79,39 +81,19 @@ func DebounceImmediate(fn func(), interval time.Duration) func() {
 }
 
 func debounce(fn func(), interval time.Duration, options debounceOptions) func() {
+	once := new(sync.Once)
 	handleImmediateCall := func() {
 		if options.Immediate {
 			fn()
 		}
 	}
-	cancel := handleImmediateCall
+	cancel := func() {}
 	return func() {
 		cancel()
-		cancel = ExecuteIn(interval, fn)
+		once.Do(handleImmediateCall)
+		stopTimer := time.AfterFunc(interval, fn).Stop
+		cancel = func() { stopTimer() }
 	}
-}
-
-// ExecuteIn postpones the execution of function fn for the specified interval.
-// It returns a cancel function which when invoked earlier than the specified interval, it will
-// cancel the execution of function fn. Note that function fn is executed in a different goroutine
-func ExecuteIn(interval time.Duration, fn func()) func() {
-	var isCanceled bool
-	var access sync.Mutex
-	go (func() {
-		time.Sleep(interval)
-		access.Lock()
-		defer access.Unlock()
-		if !isCanceled {
-			fn()
-		}
-	})()
-
-	cancel := func() {
-		access.Lock()
-		isCanceled = true
-		access.Unlock()
-	}
-	return cancel
 }
 
 type executeEveryOptions struct {
@@ -132,34 +114,36 @@ func ExecuteEveryImmediate(interval time.Duration, fn func() bool) func() {
 }
 
 func executeEvery(interval time.Duration, fn func() bool, options executeEveryOptions) func() {
-	var access sync.Mutex
-	shouldContinue := true
-
-	go (func() {
-		if options.Immediate {
-			shouldContinue = fn()
-
-			if !shouldContinue {
-				return
-			}
-		}
-
-		for range time.Tick(interval) {
-			access.Lock()
-			if !shouldContinue {
-				access.Unlock()
-				break
-			}
-			shouldContinue = fn()
-			access.Unlock()
-		}
-	})()
+	cancelChannel := make(chan interface{})
+	once := new(sync.Once)
 
 	cancel := func() {
-		access.Lock()
-		shouldContinue = false
-		access.Unlock()
+		once.Do(func() {
+			cancelChannel <- nil
+		})
 	}
+
+	if options.Immediate {
+		shouldContinue := fn()
+		if !shouldContinue {
+			close(cancelChannel)
+			return func() {}
+		}
+	}
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		for range ticker.C {
+			select {
+			case <-cancelChannel:
+				ticker.Stop()
+			default:
+				if !fn() {
+					ticker.Stop()
+				}
+			}
+		}
+	}()
 
 	return cancel
 }

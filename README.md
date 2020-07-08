@@ -16,154 +16,11 @@
 
 # Cable
 
-Utility belt package for scheduling/limiting function calls
+A utility belt package that provides functions that can throttle, debounce and schedule function calls
 
 ## Install
 
 `go get github.com/jahnestacado/cable`
-
-## Usage
-
-### Throttle
-
-```go
-var timesInvoked int
-throttledFunc := cable.Throttle(func() {
-  timesInvoked++
-}, 1*time.Second)
-
-for i := 0; i < 10; i++ {
-  throttledFunc()
-  time.Sleep(500 * time.Millisecond)
-}
-
-fmt.Printf("Times invoked: %d", timesInvoked) // >_ Times invoked: 5
-```
-
-### ThrottleImmediate
-
-```go
-var timesInvoked int
-throttledFunc := cable.ThrottleImmediate(func() {
-  timesInvoked++
-}, 1*time.Second)
-
-for i := 0; i < 10; i++ {
-  throttledFunc()
-  time.Sleep(500 * time.Millisecond)
-}
-
-fmt.Printf("Times invoked: %d", timesInvoked) // >_ Times invoked: 6
-```
-
-### Debounce
-
-```go
-var timesInvoked int
-throttledFunc := cable.Debounce(func() {
-  timesInvoked++
-}, 1*time.Second)
-
-for i := 0; i < 10; i++ {
-  throttledFunc()
-  time.Sleep(500 * time.Millisecond)
-}
-
-time.Sleep(600 * time.Millisecond)
-
-fmt.Printf("Times invoked: %d", timesInvoked) // >_ Times invoked: 1
-
-```
-
-### DebounceImmediate
-
-```go
-var timesInvoked int
-throttledFunc := cable.DebounceImmediate(func() {
-  timesInvoked++
-}, 1*time.Second)
-
-for i := 0; i < 10; i++ {
-  throttledFunc()
-  time.Sleep(500 * time.Millisecond)
-}
-
-time.Sleep(600 * time.Millisecond)
-
-fmt.Printf("Times invoked: %d", timesInvoked) // >_ Times invoked: 2
-
-```
-
-### ExecuteIn
-
-```go
-cable.ExecuteIn(500*time.Millisecond, func() {
-  fmt.Println("1. Executed scheduled function!")
-})
-fmt.Println("0. Scheduled function. Now wait...")
-time.Sleep(600 * time.Millisecond)
-fmt.Println("2. The end!")
-
-// >_ 0. Scheduled function. Now wait...
-// >_ 1. Executed scheduled function!
-// >_ 2. The end!
-
-```
-
-### ExecuteEvery
-
-```go
-var timesInvoked int
-maxInvocation := 5
-cable.ExecuteEvery(500*time.Millisecond, func() bool {
-  timesInvoked++
-  fmt.Println(fmt.Sprintf("%d. Executed scheduled function!", timesInvoked))
-
-  shouldContinue := timesInvoked < maxInvocation
-  return shouldContinue
-})
-
-fmt.Println("0. Scheduled function. Now wait...")
-time.Sleep(3 * time.Second)
-fmt.Println("6. The end!")
-
-// >_ 0. Scheduled function. Now wait...
-// >_ 1. Executed scheduled function!
-// >_ 2. Executed scheduled function!
-// >_ 3. Executed scheduled function!
-// >_ 4. Executed scheduled function!
-// >_ 5. Executed scheduled function!
-// >_ 6. The end!
-
-```
-
-### ExecuteEveryImmediate
-
-```go
-var timesInvoked int
-maxInvocation := 6
-cable.ExecuteEveryImmediate(500*time.Millisecond, func() bool {
-  timesInvoked++
-  fmt.Println(fmt.Sprintf("%d. Executed scheduled function!", timesInvoked))
-
-  shouldContinue := timesInvoked < maxInvocation
-  return shouldContinue
-})
-
-fmt.Println("0. Scheduled function. Now wait...")
-time.Sleep(3 * time.Second)
-fmt.Println("7. The end!")
-
-// >_ 0. Scheduled function. Now wait...
-// >_ 1. Executed scheduled function!
-// >_ 2. Executed scheduled function!
-// >_ 3. Executed scheduled function!
-// >_ 4. Executed scheduled function!
-// >_ 5. Executed scheduled function!
-// >_ 6. Executed scheduled function!
-// >_ 7. The end!
-
-```
 
 ## API
 
@@ -171,5 +28,5 @@ fmt.Println("7. The end!")
 
 ## License
 
-Copyright (c) 2018 Ioannis Tzanellis<br>
+Copyright (c) 2020 Ioannis Tzanellis<br>
 [Released under the MIT license](https://github.com/jahnestacado/cable/blob/master/LICENSE)
