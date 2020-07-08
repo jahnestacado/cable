@@ -70,53 +70,12 @@ func TestExecuteEveryImmediate(t *testing.T) {
 
 		assert.Equal(expectedTimesInvoked, atomic.LoadInt32(&timesInvoked))
 	})
-
-	t.Run("should call the function immediately and keep calling it until it returns false", func(t *testing.T) {
-		assert := assert.New(t)
-		var wg sync.WaitGroup
-		interval := time.Millisecond
-		expectedTimesInvoked := int32(5)
-
-		var timesInvoked int32
-		wg.Add(1)
-		ExecuteEveryImmediate(interval, func() bool {
-			atomic.AddInt32(&timesInvoked, 1)
-			if timesInvoked == expectedTimesInvoked {
-				defer wg.Done()
-				return false
-			}
-			return true
-		})
-
-		wg.Wait()
-		assert.Equal(expectedTimesInvoked, atomic.LoadInt32(&timesInvoked))
-	})
-
-	t.Run("should call the function immediately and keep calling it until its is canceled", func(t *testing.T) {
-		assert := assert.New(t)
-		cancelAfterMillis := 100
-		intervalMillis := 5
-		expectedInvocations := int32((cancelAfterMillis / intervalMillis))
-		leeway := time.Duration(intervalMillis/3) * time.Millisecond
-
-		var timesInvoked int32
-		cancelAfterDuration := time.Duration(cancelAfterMillis)*time.Millisecond + leeway
-		cancel := ExecuteEveryImmediate(time.Duration(intervalMillis)*time.Millisecond, func() bool {
-			atomic.AddInt32(&timesInvoked, 1)
-			return true
-		})
-
-		time.Sleep(cancelAfterDuration)
-		cancel()
-
-		assert.InDelta(expectedInvocations, atomic.LoadInt32(&timesInvoked), 1)
-	})
 }
 
 func TestThrottle(t *testing.T) {
 	throttleIntervalMillis := 3
 	executionIntervalMillis := 1
-	totalInvocations := 9
+	totalInvocations := 100
 	expectedInvocations := int32((totalInvocations * executionIntervalMillis) / throttleIntervalMillis)
 
 	t.Run("should throttle the function with the expected rate", func(t *testing.T) {
@@ -133,7 +92,7 @@ func TestThrottle(t *testing.T) {
 		// give a leeway of an extra iteration to allow throttling for last invocation to kick in
 		time.Sleep(time.Duration(throttleIntervalMillis) * time.Millisecond)
 
-		assert.Equal(expectedInvocations, atomic.LoadInt32(&timesInvoked))
+		assert.InDelta(expectedInvocations, atomic.LoadInt32(&timesInvoked), 1)
 	})
 }
 
