@@ -44,7 +44,7 @@ func TestExecuteEvery(t *testing.T) {
 		var timesInvoked int32
 		var wg sync.WaitGroup
 		wg.Add(expectedInvocations)
-		timeBefore := time.Now()
+		timeBefore := time.Now().UnixNano() / int64(time.Millisecond)
 		cancel := ExecuteEvery(time.Duration(intervalMillis)*time.Millisecond, func() bool {
 			defer wg.Done()
 			atomic.AddInt32(&timesInvoked, 1)
@@ -52,11 +52,10 @@ func TestExecuteEvery(t *testing.T) {
 		})
 
 		wg.Wait()
-		timeAfter := time.Now()
+		timeAfter := time.Now().UnixNano() / int64(time.Millisecond)
 		cancel()
 
-		leeway := time.Millisecond
-		assert.WithinDuration(timeAfter, timeBefore, time.Duration(cancelAfterMillis)*time.Millisecond+leeway)
+		assert.InDelta(timeAfter, timeBefore, float64(cancelAfterMillis+1))
 		assert.Equal(expectedInvocations, int(timesInvoked))
 	})
 }
@@ -121,25 +120,33 @@ func TestThrottleImmediate(t *testing.T) {
 
 func TestDebounce(t *testing.T) {
 	debounceIntervalMillis := 5
-	executionIntervalMillis := 5
 	totalInvocations := 100
-	expectedInvocations := int32((totalInvocations * executionIntervalMillis) / (executionIntervalMillis + debounceIntervalMillis))
+	expectedInvocations := 1
 
 	t.Run("should debounce then function with the expected rate", func(t *testing.T) {
 		assert := assert.New(t)
+
+		var wg sync.WaitGroup
 		var timesInvoked int32
+
 		debouncedFunc := Debounce(func() {
+			defer wg.Done()
 			atomic.AddInt32(&timesInvoked, 1)
 		}, time.Duration(debounceIntervalMillis)*time.Millisecond)
 
-		for i := 0; i <= totalInvocations; i++ {
-			if i%2 != 0 {
+		wg.Add(expectedInvocations)
+		timeBefore := time.Now().UnixNano() / int64(time.Millisecond)
+		go func() {
+			for i := 0; i < totalInvocations; i++ {
 				debouncedFunc()
 			}
-			time.Sleep(time.Duration(executionIntervalMillis) * time.Millisecond)
-		}
+			debouncedFunc()
+		}()
+		wg.Wait()
+		timeAfter := time.Now().UnixNano() / int64(time.Millisecond)
 
-		assert.Equal(expectedInvocations, atomic.LoadInt32(&timesInvoked))
+		assert.Equal(expectedInvocations, int(atomic.LoadInt32(&timesInvoked)))
+		assert.InDelta(timeAfter, timeBefore, float64(debounceIntervalMillis+1))
 	})
 }
 
