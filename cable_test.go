@@ -37,22 +37,27 @@ func TestExecuteEvery(t *testing.T) {
 
 	t.Run("should keep calling the function until it is canceled", func(t *testing.T) {
 		assert := assert.New(t)
-		cancelAfterMillis := 100
-		intervalMillis := 6
-		expectedInvocations := int32(cancelAfterMillis / intervalMillis)
-		leeway := time.Duration(intervalMillis/3) * time.Millisecond
+		cancelAfterMillis := 20
+		intervalMillis := 5
+		expectedInvocations := cancelAfterMillis / intervalMillis
 
 		var timesInvoked int32
-		cancelAfterDuration := time.Duration(cancelAfterMillis)*time.Millisecond + leeway
+		var wg sync.WaitGroup
+		wg.Add(expectedInvocations)
+		timeBefore := time.Now()
 		cancel := ExecuteEvery(time.Duration(intervalMillis)*time.Millisecond, func() bool {
+			defer wg.Done()
 			atomic.AddInt32(&timesInvoked, 1)
 			return true
 		})
 
-		time.Sleep(cancelAfterDuration)
+		wg.Wait()
+		timeAfter := time.Now()
 		cancel()
 
-		assert.InDelta(expectedInvocations, atomic.LoadInt32(&timesInvoked), 1)
+		leeway := time.Millisecond
+		assert.WithinDuration(timeAfter, timeBefore, time.Duration(cancelAfterMillis)*time.Millisecond+leeway)
+		assert.Equal(expectedInvocations, int(timesInvoked))
 	})
 }
 

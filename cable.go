@@ -16,17 +16,17 @@ type throttleOptions struct {
 
 // Throttle returns a function that no matter how many times it is invoked,
 // it will only execute once within the specified interval
-func Throttle(fn func(), interval time.Duration) func() {
+func Throttle(fn func(), interval time.Duration) (throttledFunc func()) {
 	return throttle(fn, interval, throttleOptions{})
 }
 
 // ThrottleImmediate behaves as the Throttle function but it will also
 // invoke the fn function immediately
-func ThrottleImmediate(fn func(), interval time.Duration) func() {
+func ThrottleImmediate(fn func(), interval time.Duration) (throttledFunc func()) {
 	return throttle(fn, interval, throttleOptions{Immediate: true})
 }
 
-func throttle(fn func(), interval time.Duration, options throttleOptions) func() {
+func throttle(fn func(), interval time.Duration, options throttleOptions) (throttledFunc func()) {
 	invocationChannel := make(chan time.Time)
 	once := new(sync.Once)
 
@@ -70,17 +70,17 @@ type debounceOptions struct {
 
 // Debounce returns a function that no matter how many times it is invoked,
 // it will only execute after the specified interval has passed from its last invocation
-func Debounce(fn func(), interval time.Duration) func() {
+func Debounce(fn func(), interval time.Duration) (debouncedFunc func()) {
 	return debounce(fn, interval, debounceOptions{})
 }
 
 // DebounceImmediate behaves as the Debounce function but it will also
 // invoke the fn function immediately
-func DebounceImmediate(fn func(), interval time.Duration) func() {
+func DebounceImmediate(fn func(), interval time.Duration) (debouncedFunc func()) {
 	return debounce(fn, interval, debounceOptions{Immediate: true})
 }
 
-func debounce(fn func(), interval time.Duration, options debounceOptions) func() {
+func debounce(fn func(), interval time.Duration, options debounceOptions) (debouncedFunc func()) {
 	once := new(sync.Once)
 	handleImmediateCall := func() {
 		if options.Immediate {
@@ -103,44 +103,38 @@ type executeEveryOptions struct {
 // ExecuteEvery executes function fn repeatedly with a fixed time delay(interval) between each call
 // until function fn returns false. It returns a cancel function which can be used to cancel as well
 // the execution of function
-func ExecuteEvery(interval time.Duration, fn func() bool) func() {
+func ExecuteEvery(interval time.Duration, fn func() bool) (cancel func()) {
 	return executeEvery(interval, fn, executeEveryOptions{})
 }
 
 // ExecuteEveryImmediate behaves as the ExecuteEvery function but it will also
 // invoke the fn function immediately
-func ExecuteEveryImmediate(interval time.Duration, fn func() bool) func() {
+func ExecuteEveryImmediate(interval time.Duration, fn func() bool) (cancel func()) {
 	return executeEvery(interval, fn, executeEveryOptions{Immediate: true})
 }
 
-func executeEvery(interval time.Duration, fn func() bool, options executeEveryOptions) func() {
-	cancelChannel := make(chan interface{})
+func executeEvery(interval time.Duration, fn func() bool, options executeEveryOptions) (cancel func()) {
 	once := new(sync.Once)
+	ticker := time.NewTicker(interval)
 
-	cancel := func() {
+	cancel = func() {
 		once.Do(func() {
-			cancelChannel <- nil
+			ticker.Stop()
 		})
 	}
 
 	if options.Immediate {
 		shouldContinue := fn()
 		if !shouldContinue {
-			close(cancelChannel)
+			ticker.Stop()
 			return func() {}
 		}
 	}
 
 	go func() {
-		ticker := time.NewTicker(interval)
 		for range ticker.C {
-			select {
-			case <-cancelChannel:
+			if !fn() {
 				ticker.Stop()
-			default:
-				if !fn() {
-					ticker.Stop()
-				}
 			}
 		}
 	}()
