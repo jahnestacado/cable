@@ -63,15 +63,22 @@ func TestExecuteEvery(t *testing.T) {
 func TestExecuteEveryImmediate(t *testing.T) {
 	t.Run("should call the function immediately", func(t *testing.T) {
 		assert := assert.New(t)
-		interval := time.Millisecond
+		interval := 2 * time.Millisecond
 		expectedTimesInvoked := int32(1)
 
 		var timesInvoked int32
+		var wg sync.WaitGroup
+		wg.Add(1)
+		timeBefore := time.Now().UnixNano() / int64(time.Millisecond)
 		ExecuteEveryImmediate(interval, func() bool {
 			atomic.AddInt32(&timesInvoked, 1)
+			wg.Done()
 			return false
 		})
+		wg.Wait()
+		timeAfter := time.Now().UnixNano() / int64(time.Millisecond)
 
+		assert.InDelta(timeAfter, timeBefore, float64(1))
 		assert.Equal(expectedTimesInvoked, atomic.LoadInt32(&timesInvoked))
 	})
 }

@@ -123,15 +123,13 @@ func executeEvery(interval time.Duration, fn func() bool, options executeEveryOp
 		})
 	}
 
-	if options.Immediate {
-		shouldContinue := fn()
-		if !shouldContinue {
-			ticker.Stop()
-			return func() {}
-		}
-	}
-
 	go func() {
+		if options.Immediate {
+			if !fn() {
+				ticker.Stop()
+			}
+		}
+
 		for range ticker.C {
 			if !fn() {
 				ticker.Stop()
